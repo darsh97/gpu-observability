@@ -1,0 +1,36 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+
+# Logs / temp
+*.log
+logs/
+tmp/
+temp/
+
+# Python cache (common in infra scripts)
+__pycache__/
+*.pyc
+
+# Node cache (if helper tooling is added)
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# Local backup files
+*.bak
+*.old
+*.orig

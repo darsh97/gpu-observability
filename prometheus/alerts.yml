@@ -1,0 +1,38 @@
+﻿groups:
+  - name: gpu-observability
+    rules:
+      - alert: GPUVRAMSaturationHigh
+        expr: |
+          DCGM_FI_DEV_FB_USED
+          /
+          clamp_min(DCGM_FI_DEV_FB_USED + DCGM_FI_DEV_FB_FREE, 1)
+          > 0.90
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "GPU VRAM saturation high"
+          description: "GPU {{ $labels.gpu }} VRAM saturation is above 90% for more than 1 minute."
+
+      - alert: GPUVRAMAllocationSpike
+        expr: |
+          deriv(DCGM_FI_DEV_FB_USED[2m]) > 512
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: "GPU VRAM allocation spike"
+          description: "GPU {{ $labels.gpu }} VRAM is growing faster than 512 MiB/s (possible batch spike, leak, or engine rebuild)."
+
+      - alert: GPUVRAMSustainedPressure
+        expr: |
+          DCGM_FI_DEV_FB_USED
+          /
+          clamp_min(DCGM_FI_DEV_FB_USED + DCGM_FI_DEV_FB_FREE, 1)
+          > 0.85
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "GPU VRAM pressure sustained"
+          description: "GPU {{ $labels.gpu }} VRAM saturation has stayed above 85% for 15 minutes."

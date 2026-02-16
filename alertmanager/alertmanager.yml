@@ -1,0 +1,14 @@
+﻿global:
+  resolve_timeout: 5m
+
+route:
+  group_by:
+    - alertname
+    - gpu
+  group_wait: 10s
+  group_interval: 5m
+  repeat_interval: 2h
+  receiver: default-receiver
+
+receivers:
+  - name: default-receiver
