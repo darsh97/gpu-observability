@@ -50,20 +50,10 @@ docker run --rm --gpus all nvidia/cuda:12.2.0-base nvidia-smi
 
 If this command fails, `dcgm-exporter` will not provide valid GPU metrics.
 
-## HPC node context (your environment)
+## Deployment notes
 
-The stack was designed to run alongside your existing ML infra on `ml01` (single node).
-
-host profile from infra checks:
-
-- GPUs: `2 x NVIDIA H100 NVL` (`~95.8 GiB` each)
-- Driver: `575.57.08`
-- CUDA (reported by nvidia-smi): `12.9`
-- Docker runtimes include `nvidia` (default runtime still `runc`, which is OK when services use `gpus: all`)
-
-Port planning note:
-
-- This stack maps Grafana to host port `3030` (`3030:3000`) to avoid conflict with Attu on `3000`.
+- Stack is designed for single-node deployment.
+- Grafana is mapped to host port `3030` (`3030:3000`) to reduce collision risk with other local services.
 
 ## Deploy
 
