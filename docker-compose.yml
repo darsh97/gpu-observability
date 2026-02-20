@@ -32,6 +32,9 @@ services:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
       - prometheus_data:/prometheus
+    extra_hosts:
+      # Ensures host.docker.internal resolves on Linux Docker Engine too.
+      - "host.docker.internal:host-gateway"
     ports:
       - "9090:9090"
     depends_on:

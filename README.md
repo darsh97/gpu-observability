@@ -5,6 +5,7 @@ Production-oriented GPU observability stack for an HPC/ML node running NIM/LLM w
 ## What this provides
 
 - GPU telemetry from NVIDIA GPUs via `dcgm-exporter`
+- NIM LLM runtime telemetry via NIM's Prometheus endpoint
 - Time-series storage and alert evaluation in Prometheus
 - Notification routing in Alertmanager
 - Dashboards in Grafana
@@ -14,6 +15,8 @@ Production-oriented GPU observability stack for an HPC/ML node running NIM/LLM w
 ## Architecture
 
 `NVIDIA Driver -> DCGM -> dcgm-exporter -> Prometheus -> Grafana`
+
+`NIM Server -> Prometheus -> Grafana`
 
 `Prometheus -> Alertmanager`
 
@@ -75,6 +78,7 @@ docker compose ps
 - Prometheus: `http://localhost:9090`
 - Alertmanager: `http://localhost:9093`
 - dcgm-exporter metrics: `http://localhost:9400/metrics`
+- NIM metrics: `http://localhost:8000/v1/metrics` (some releases expose `/metrics`)
 
 Default Grafana credentials (set in compose):
 
@@ -103,6 +107,8 @@ Configured in `prometheus/prometheus.yml`:
 - Scrape interval: `5s`
 - Evaluation interval: `5s`
 - Scrape target: `dcgm-exporter:9400` (container DNS)
+- Scrape target: `host.docker.internal:8000` for NIM running on host port `8000`
+- NIM metrics path: `/v1/metrics` (if your NIM exposes `/metrics`, update `metrics_path`)
 - Alertmanager target: `alertmanager:9093` (container DNS)
 - Rule file: `/etc/prometheus/alerts.yml`
 
@@ -150,6 +156,12 @@ Provisioned dashboard includes:
 - VRAM Saturation Ratio
 - GPU Utilization
 - VRAM Spike Detector (MiB/s)
+- NIM Requests (success/failure per sec)
+- TTFT p50/p90 (sec)
+- ITL p50/p90 (sec)
+- Token Throughput (tok/sec)
+- NIM Queue Depth (running/waiting)
+- NIM KV Cache Utilization
 
 Datasource is provisioned to Prometheus at `http://prometheus:9090`.
 
@@ -199,6 +211,49 @@ Datasource is provisioned to Prometheus at `http://prometheus:9090`.
 - Large positive spikes often align with sudden batch growth, warmup/rebuild, or leak behavior.
 - Repeated spikes without workload changes are a strong anomaly indicator.
 
+`NIM Requests (success/failure per sec)`:
+
+- Query: `rate(request_success_total[$__rate_interval])` and `rate(request_failure_total[$__rate_interval])`
+- Meaning: Service health under load.
+- What to watch:
+- Failure rate rising above baseline should page quickly.
+- Flat success rate with growing queue indicates saturation/backpressure.
+
+`TTFT p50/p90 (sec)`:
+
+- Query: `histogram_quantile(0.5|0.9, sum by (le) (rate(time_to_first_token_seconds_bucket[$__rate_interval])))`
+- Meaning: User-visible first token latency.
+- What to watch:
+- p90 divergence from p50 indicates tail latency instability.
+
+`ITL p50/p90 (sec)`:
+
+- Query: `histogram_quantile(0.5|0.9, sum by (le) (rate(time_per_output_token_seconds_bucket[$__rate_interval])))`
+- Meaning: Decode smoothness (time per emitted token).
+- What to watch:
+- Rising ITL at steady load can indicate contention or cache inefficiency.
+
+`Token Throughput (tok/sec)`:
+
+- Query: `rate(prompt_tokens_total[$__rate_interval])` and `rate(generation_tokens_total[$__rate_interval])`
+- Meaning: Aggregate input/output token processing rate.
+- What to watch:
+- Throughput drops with stable queue depth often indicate model/runtime degradation.
+
+`NIM Queue Depth (running/waiting)`:
+
+- Query: `num_requests_running` and `num_requests_waiting`
+- Meaning: Real-time concurrency and backlog.
+- What to watch:
+- Sustained non-zero waiting queue is a direct saturation signal.
+
+`NIM KV Cache Utilization`:
+
+- Query: `gpu_cache_usage_perc / 100`
+- Meaning: Fraction of KV cache currently used.
+- What to watch:
+- Near-100% sustained usage can correlate with latency spikes and request queuing.
+
 Interpretation patterns:
 
 - High `VRAM Saturation` + high `VRAM Spike Detector`:
@@ -244,9 +299,9 @@ docker compose logs -f
 After startup, verify:
 
 - `dcgm-exporter` exposes metrics on `:9400/metrics`
-- Prometheus target `dcgm-exporter:9400` is `UP`
+- Prometheus targets `dcgm-exporter:9400` and `nim-llm` are `UP`
 - Alerts appear in Prometheus rules page
-- Grafana dashboard loads and shows per-GPU signals
+- Grafana dashboard loads and shows GPU + NIM signals
 - Restarting containers preserves metrics and dashboard state
 
 ## Hardening recommendations
@@ -269,6 +324,12 @@ After startup, verify:
 
 - Verify exporter container is running
 - Confirm target is `dcgm-exporter:9400` (not localhost)
+
+`NIM target down`:
+
+- Confirm NIM is serving metrics at `http://localhost:8000/v1/metrics` (or `/metrics` for some releases)
+- Confirm Prometheus target is `host.docker.internal:8000` (not `localhost:8000` inside container)
+- If using Linux Docker Engine, keep `extra_hosts: host.docker.internal:host-gateway` on the Prometheus service
 
 `Grafana has no data`:
 

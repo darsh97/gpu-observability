@@ -45,7 +45,30 @@ Expected:
 
 If this layer fails, fix exporter/runtime first. Prometheus/Grafana validation is not meaningful until this is healthy.
 
-## 3. Layer 2: Prometheus (scrape + storage + rules)
+## 3. Layer 1b: NIM endpoint (application telemetry source)
+
+Check NIM endpoint:
+
+```bash
+curl -sf http://localhost:8000/v1/metrics | head
+```
+
+If this returns 404 in your NIM release, test:
+
+```bash
+curl -sf http://localhost:8000/metrics | head
+```
+
+Expected:
+
+- Prometheus text output appears.
+- Query includes key NIM metrics such as:
+- `request_success_total`
+- `request_failure_total`
+- `time_to_first_token_seconds_bucket`
+- `time_per_output_token_seconds_bucket`
+
+## 4. Layer 2: Prometheus (scrape + storage + rules)
 
 Check Prometheus readiness:
 
@@ -64,6 +87,7 @@ Check scrape target status:
 Expected:
 
 - Job `dcgm-exporter` is `UP`.
+- Job `nim-llm` is `UP`.
 - No DNS error like `lookup dcgm-exporter ... no such host`.
 
 Check core queries:
@@ -73,10 +97,13 @@ Check core queries:
 - `DCGM_FI_DEV_FB_USED`
 - `DCGM_FI_DEV_FB_FREE`
 - `DCGM_FI_DEV_GPU_UTIL`
+- `rate(request_success_total[5m])`
+- `histogram_quantile(0.5, sum by (le) (rate(time_to_first_token_seconds_bucket[5m])))`
 
 Expected:
 
 - Time series returned per GPU label.
+- Time series returned for NIM latency/throughput signals.
 
 Check rules loaded:
 
@@ -88,7 +115,7 @@ Expected:
 - `GPUVRAMAllocationSpike`
 - `GPUVRAMSustainedPressure`
 
-## 4. Layer 3: Alertmanager (notification pipeline)
+## 5. Layer 3: Alertmanager (notification pipeline)
 
 Check readiness:
 
@@ -109,7 +136,7 @@ Expected:
 
 - Prometheus can reach Alertmanager with no connection errors in Prometheus logs.
 
-## 5. Layer 4: Grafana (visualization)
+## 6. Layer 4: Grafana (visualization)
 
 Check Grafana health:
 
@@ -135,8 +162,14 @@ Expected:
 - VRAM Saturation Ratio
 - GPU Utilization
 - VRAM Spike Detector (MiB/s)
+- NIM Requests (success/failure per sec)
+- TTFT p50/p90 (sec)
+- ITL p50/p90 (sec)
+- Token Throughput (tok/sec)
+- NIM Queue Depth
+- NIM KV Cache Utilization
 
-## 6. End-to-end persistence check
+## 7. End-to-end persistence check
 
 Restart stack:
 
@@ -147,10 +180,11 @@ docker compose restart
 Expected after recovery:
 
 - Prometheus target `dcgm-exporter` returns to `UP`.
+- Prometheus target `nim-llm` returns to `UP`.
 - Grafana dashboard still exists.
 - Historical data remains available (within retention window).
 
-## 7. Fast failure map
+## 8. Fast failure map
 
 If Layer 1 fails:
 
@@ -162,6 +196,8 @@ If Layer 1 passes but Layer 2 fails:
 
 - Ensure both containers are on the same compose network.
 - Confirm scrape target is `dcgm-exporter:9400` (not localhost).
+- Confirm NIM target is `host.docker.internal:8000` (not localhost from inside Prometheus container).
+- If NIM only exposes `/metrics`, update `metrics_path` in `prometheus/prometheus.yml`.
 
 If Layer 2 passes but Layer 4 fails:
 
@@ -169,7 +205,7 @@ If Layer 2 passes but Layer 4 fails:
 - Confirm datasource UID `prometheus` matches dashboard datasource UID.
 - If folder is empty, check Grafana logs for `invalid character 'ï'` on dashboard JSON (BOM encoding issue), then rewrite dashboard/provisioning files as UTF-8 without BOM and restart Grafana.
 
-## 8. Useful commands
+## 9. Useful commands
 
 ```bash
 docker compose logs -f
@@ -179,22 +215,24 @@ docker compose down
 docker compose down -v
 ```
 
-## 9. UI checks (manual)
+## 10. UI checks (manual)
 
 Use this as a quick visual validation after CLI checks pass.
 
 Prometheus UI:
 
 1. Open `http://localhost:9090/targets`
-2. Verify `dcgm-exporter` shows `State = UP`
+2. Verify `dcgm-exporter` and `nim-llm` show `State = UP`
 3. Open `http://localhost:9090/graph`
 4. Run `DCGM_FI_DEV_FB_USED`
-5. Click `Execute`
+5. Run `rate(request_success_total[5m])`
+6. Click `Execute`
 
 Expected:
 
 - Target row is green/healthy.
 - Graph/table shows one or more series with GPU labels.
+- Graph/table shows one or more NIM request-rate series.
 
 Prometheus rules UI:
 
@@ -239,3 +277,6 @@ Metric quick meaning (operator view):
 - `VRAM Saturation Ratio`: normalized VRAM pressure (`used / total`). `>90%` sustained is dangerous.
 - `GPU Utilization`: compute activity. High memory + low utilization often indicates memory pressure without useful compute.
 - `VRAM Spike Detector (MiB/s)`: rate of VRAM change. Repeated positive spikes indicate allocation bursts/leak-like behavior.
+- `NIM Requests (success/failure per sec)`: request health and failure pressure.
+- `TTFT/ITL`: user-perceived latency and decode smoothness.
+- `NIM Queue Depth`: backpressure (`waiting`) vs active work (`running`).

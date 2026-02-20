@@ -147,6 +147,199 @@
         }
       ],
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 16
+      },
+      "id": 6,
+      "title": "NIM Requests (success/failure per sec)",
+      "targets": [
+        {
+          "expr": "rate(request_success_total[$__rate_interval])",
+          "legendFormat": "success",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(request_failure_total[$__rate_interval])",
+          "legendFormat": "failure",
+          "refId": "B"
+        }
+      ],
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 16
+      },
+      "id": 7,
+      "title": "TTFT p50/p90 (sec)",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(time_to_first_token_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.9, sum by (le) (rate(time_to_first_token_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "p90",
+          "refId": "B"
+        }
+      ],
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 16
+      },
+      "id": 8,
+      "title": "ITL p50/p90 (sec)",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(time_per_output_token_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.9, sum by (le) (rate(time_per_output_token_seconds_bucket[$__rate_interval])))",
+          "legendFormat": "p90",
+          "refId": "B"
+        }
+      ],
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 24
+      },
+      "id": 9,
+      "title": "Token Throughput (tok/sec)",
+      "targets": [
+        {
+          "expr": "rate(prompt_tokens_total[$__rate_interval])",
+          "legendFormat": "prompt",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(generation_tokens_total[$__rate_interval])",
+          "legendFormat": "generation",
+          "refId": "B"
+        }
+      ],
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 24
+      },
+      "id": 10,
+      "title": "NIM Queue Depth",
+      "targets": [
+        {
+          "expr": "num_requests_running",
+          "legendFormat": "running",
+          "refId": "A"
+        },
+        {
+          "expr": "num_requests_waiting",
+          "legendFormat": "waiting",
+          "refId": "B"
+        }
+      ],
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 24
+      },
+      "id": 11,
+      "title": "NIM KV Cache Utilization",
+      "targets": [
+        {
+          "expr": "gpu_cache_usage_perc / 100",
+          "legendFormat": "cache",
+          "refId": "A"
+        }
+      ],
+      "type": "timeseries"
     }
   ],
   "refresh": "5s",
@@ -168,6 +361,6 @@
   "timezone": "",
   "title": "GPU Observability",
   "uid": "gpu-observability",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }

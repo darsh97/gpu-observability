@@ -11,6 +11,15 @@ scrape_configs:
       - targets:
           - dcgm-exporter:9400
 
+  - job_name: nim-llm
+    # NIM Prometheus endpoint is usually /v1/metrics.
+    # If your NIM release exposes /metrics, change this path.
+    metrics_path: /v1/metrics
+    static_configs:
+      - targets:
+          # NIM runs on host:8000, so Prometheus container scrapes host gateway DNS.
+          - host.docker.internal:8000
+
 alerting:
   alertmanagers:
     - static_configs:
